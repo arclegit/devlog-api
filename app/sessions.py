@@ -1,6 +1,5 @@
-from fastapi import APIRouter, Depends, HTTPException, Query 
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
-
 from app.database import get_db
 from app.dependencies import get_current_user
 from app.models import CodingSession, User
@@ -10,7 +9,7 @@ from app.schemas import SessionCreate, SessionUpdate, SessionResponse
 router = APIRouter(prefix="/sessions", tags=["Sessions"])
 
 
-@router.post("/", response_model=SessionResponse)
+@router.post("/", response_model=SessionResponse , status_code=status.HTTP_201_CREATED,)
 def create_session(
     session_data: SessionCreate,
     db: Session = Depends(get_db),
@@ -31,6 +30,7 @@ def create_session(
 
     return new_session
 
+
 @router.get("/", response_model=list[SessionResponse])
 def get_sessions(
     skip: int = Query(0, ge=0),
@@ -47,6 +47,7 @@ def get_sessions(
     )
 
     return sessions
+
 
 @router.get("/{session_id}", response_model=SessionResponse)
 def get_session(
@@ -67,6 +68,7 @@ def get_session(
         raise HTTPException(status_code=404, detail="Session not found")
 
     return session
+
 
 @router.patch("/{session_id}", response_model=SessionResponse)
 def update_session(
@@ -89,6 +91,15 @@ def update_session(
 
     update_data = session_data.model_dump(exclude_unset=True)
 
+    new_started_at = update_data.get("started_at", session.started_at)
+    new_ended_at = update_data.get("ended_at", session.ended_at)
+
+    if new_ended_at is not None and new_ended_at < new_started_at:
+        raise HTTPException(
+            status_code=422,
+            detail="ended_at must be greater than or equal to started_at",
+        )
+
     for field, value in update_data.items():
         setattr(session, field, value)
 
@@ -96,6 +107,7 @@ def update_session(
     db.refresh(session)
 
     return session
+
 
 @router.delete("/{session_id}")
 def delete_session(

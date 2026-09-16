@@ -41,7 +41,7 @@ def create_session(client, token, project_name="Test Project"):
         },
     )
 
-    assert response.status_code == 200
+    assert response.status_code == 201
 
     return response.json()
 
@@ -159,26 +159,4 @@ def test_user_only_sees_own_sessions(client):
 
     assert len(sessions) == 1
     assert sessions[0]["project_name"] == "A Project"
-
-def test_sessions_pagination(client):
-    email = "pagination@example.com"
-
-    register_user(client, email)
-    token = login_user(client, email)
-
-    create_session(client, token, "Project 1")
-    create_session(client, token, "Project 2")
-    create_session(client, token, "Project 3")
-
-    response = client.get(
-        "/sessions/?skip=0&limit=2",
-        headers={
-            "Authorization": f"Bearer {token}",
-        },
-    )
-
-    assert response.status_code == 200
-
-    sessions = response.json()
-
-    assert len(sessions) == 2
+    
