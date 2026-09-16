@@ -3,13 +3,13 @@ from datetime import datetime, timedelta, timezone
 import jwt
 from pwdlib import PasswordHash
 
-from app.config import JWT_SECRET_KEY
+from app.config import JWT_SECRET_KEY, ACCESS_TOKEN_EXPIRE_MINUTES
 
 
 password_hash = PasswordHash.recommended()
 
 ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 30
+
 
 
 def hash_password(password: str) -> str:
