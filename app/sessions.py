@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query 
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -33,12 +33,16 @@ def create_session(
 
 @router.get("/", response_model=list[SessionResponse])
 def get_sessions(
+    skip: int = Query(0, ge=0),
+    limit: int = Query(100, ge=1, le=100),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
     sessions = (
         db.query(CodingSession)
         .filter(CodingSession.user_id == current_user.id)
+        .offset(skip)
+        .limit(limit)
         .all()
     )
 
