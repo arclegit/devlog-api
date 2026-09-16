@@ -87,3 +87,28 @@ class SessionResponse(BaseModel):
     updated_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
+
+class AnalyticsSummaryResponse(BaseModel):
+    total_sessions: int
+    total_coding_seconds: float
+    average_session_seconds: float
+
+class LanguageAnalyticsResponse(BaseModel):
+    language: str
+    total_sessions: int
+    total_coding_seconds: float
+
+class ProjectAnalyticsResponse(BaseModel):
+    project_name: str
+    total_sessions: int
+    total_coding_seconds: float
+
+class DailyAnalyticsResponse(BaseModel):
+    date: str
+    total_sessions: int
+    total_coding_seconds: float
+
+class WeeklyAnalyticsResponse(BaseModel):
+    week: str
+    total_sessions: int
+    total_coding_seconds: float
