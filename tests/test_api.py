@@ -74,6 +74,32 @@ def test_invalid_token_returns_401(client):
 
     assert response.status_code == 401
 
+def test_login_with_wrong_password_returns_401(client):
+    email = "wrong-password@example.com"
+
+    register_user(client, email)
+
+    response = client.post(
+        "/auth/login",
+        data={
+            "username": email,
+            "password": "wrong-password",
+        },
+    )
+
+    assert response.status_code == 401
+
+def test_login_with_nonexistent_user_returns_401(client):
+    response = client.post(
+        "/auth/login",
+        data={
+            "username": "does-not-exist@example.com",
+            "password": "password123",
+        },
+    )
+
+    assert response.status_code == 401
+
 
 def test_user_cannot_access_another_users_session(client):
     user_a = "usera@example.com"
@@ -601,3 +627,468 @@ def test_analytics_for_user_with_no_sessions(client):
 
     assert response.status_code == 200
     assert response.json() == []
+
+def test_session_crud_lifecycle(client):
+    email = "crud-lifecycle@example.com"
+
+    register_user(client, email)
+    token = login_user(client, email)
+
+    # Create
+    create_response = client.post(
+        "/sessions/",
+        headers={
+            "Authorization": f"Bearer {token}",
+        },
+        json={
+            "project_name": "DevLog",
+            "language": "Python",
+            "started_at": "2026-09-16T09:00:00Z",
+            "ended_at": "2026-09-16T10:00:00Z",
+            "description": "Original description",
+        },
+    )
+
+    assert create_response.status_code == 201
+
+    session = create_response.json()
+    session_id = session["id"]
+
+    assert session["project_name"] == "DevLog"
+    assert session["language"] == "Python"
+    assert session["description"] == "Original description"
+
+    # Read
+    get_response = client.get(
+        f"/sessions/{session_id}",
+        headers={
+            "Authorization": f"Bearer {token}",
+        },
+    )
+
+    assert get_response.status_code == 200
+    assert get_response.json()["id"] == session_id
+
+    # Update
+    update_response = client.patch(
+        f"/sessions/{session_id}",
+        headers={
+            "Authorization": f"Bearer {token}",
+        },
+        json={
+            "project_name": "DevLog Updated",
+            "description": "Updated description",
+        },
+    )
+
+    assert update_response.status_code == 200
+
+    updated_session = update_response.json()
+
+    assert updated_session["project_name"] == "DevLog Updated"
+    assert updated_session["description"] == "Updated description"
+
+    # Delete
+    delete_response = client.delete(
+        f"/sessions/{session_id}",
+        headers={
+            "Authorization": f"Bearer {token}",
+        },
+    )
+
+    assert delete_response.status_code == 200
+
+    # Verify deleted
+    get_deleted_response = client.get(
+        f"/sessions/{session_id}",
+        headers={
+            "Authorization": f"Bearer {token}",
+        },
+    )
+
+    assert get_deleted_response.status_code == 404
+
+def test_sessions_pagination_returns_requested_page(client):
+    email = "pagination@example.com"
+
+    register_user(client, email)
+    token = login_user(client, email)
+
+    create_session(
+        client,
+        token,
+        project_name="Project 1",
+    )
+
+    create_session(
+        client,
+        token,
+        project_name="Project 2",
+    )
+
+    create_session(
+        client,
+        token,
+        project_name="Project 3",
+    )
+
+    response = client.get(
+        "/sessions/?skip=1&limit=1",
+        headers={
+            "Authorization": f"Bearer {token}",
+        },
+    )
+
+    assert response.status_code == 200
+
+    data = response.json()
+
+    assert len(data) == 1
+    assert data[0]["project_name"] == "Project 2"
+
+def test_analytics_summary_handles_different_session_durations(client):
+    email = "different-durations@example.com"
+
+    register_user(client, email)
+    token = login_user(client, email)
+
+    response = client.post(
+        "/sessions/",
+        headers={
+            "Authorization": f"Bearer {token}",
+        },
+        json={
+            "project_name": "Short Session",
+            "language": "Python",
+            "started_at": "2026-09-16T09:00:00Z",
+            "ended_at": "2026-09-16T09:30:00Z",
+            "description": "30 minute session",
+        },
+    )
+
+    assert response.status_code == 201
+
+    response = client.post(
+        "/sessions/",
+        headers={
+            "Authorization": f"Bearer {token}",
+        },
+        json={
+            "project_name": "Long Session",
+            "language": "Python",
+            "started_at": "2026-09-16T10:00:00Z",
+            "ended_at": "2026-09-16T12:00:00Z",
+            "description": "2 hour session",
+        },
+    )
+
+    assert response.status_code == 201
+
+    response = client.get(
+        "/analytics/summary",
+        headers={
+            "Authorization": f"Bearer {token}",
+        },
+    )
+
+    assert response.status_code == 200
+
+    data = response.json()
+
+    assert data["total_sessions"] == 2
+    assert data["total_coding_seconds"] == 9000
+    assert data["average_session_seconds"] == 4500
+
+def test_analytics_groups_multiple_sessions_by_language_and_project(client):
+    email = "analytics-grouping@example.com"
+
+    register_user(client, email)
+    token = login_user(client, email)
+
+    # Python / DevLog: 30 minutes
+    response = client.post(
+        "/sessions/",
+        headers={
+            "Authorization": f"Bearer {token}",
+        },
+        json={
+            "project_name": "DevLog",
+            "language": "Python",
+            "started_at": "2026-09-16T09:00:00Z",
+            "ended_at": "2026-09-16T09:30:00Z",
+        },
+    )
+
+    assert response.status_code == 201
+
+    # Python / DevLog: 60 minutes
+    response = client.post(
+        "/sessions/",
+        headers={
+            "Authorization": f"Bearer {token}",
+        },
+        json={
+            "project_name": "DevLog",
+            "language": "Python",
+            "started_at": "2026-09-16T10:00:00Z",
+            "ended_at": "2026-09-16T11:00:00Z",
+        },
+    )
+
+    assert response.status_code == 201
+
+    # JavaScript / DevLog: 30 minutes
+    response = client.post(
+        "/sessions/",
+        headers={
+            "Authorization": f"Bearer {token}",
+        },
+        json={
+            "project_name": "DevLog",
+            "language": "JavaScript",
+            "started_at": "2026-09-16T12:00:00Z",
+            "ended_at": "2026-09-16T12:30:00Z",
+        },
+    )
+
+    assert response.status_code == 201
+
+    # Check language aggregation
+    response = client.get(
+        "/analytics/languages",
+        headers={
+            "Authorization": f"Bearer {token}",
+        },
+    )
+
+    assert response.status_code == 200
+
+    languages = {
+        item["language"]: item
+        for item in response.json()
+    }
+
+    assert languages["Python"]["total_sessions"] == 2
+    assert languages["Python"]["total_coding_seconds"] == 5400
+
+    assert languages["JavaScript"]["total_sessions"] == 1
+    assert languages["JavaScript"]["total_coding_seconds"] == 1800
+
+    # Check project aggregation
+    response = client.get(
+        "/analytics/projects",
+        headers={
+            "Authorization": f"Bearer {token}",
+        },
+    )
+
+    assert response.status_code == 200
+
+    projects = {
+        item["project_name"]: item
+        for item in response.json()
+    }
+
+    assert projects["DevLog"]["total_sessions"] == 3
+    assert projects["DevLog"]["total_coding_seconds"] == 7200
+
+def test_daily_analytics_groups_sessions_on_same_day(client):
+    email = "daily-grouping@example.com"
+
+    register_user(client, email)
+    token = login_user(client, email)
+
+    # 30 minutes on September 16
+    response = client.post(
+        "/sessions/",
+        headers={
+            "Authorization": f"Bearer {token}",
+        },
+        json={
+            "project_name": "Morning Work",
+            "language": "Python",
+            "started_at": "2026-09-16T09:00:00Z",
+            "ended_at": "2026-09-16T09:30:00Z",
+        },
+    )
+
+    assert response.status_code == 201
+
+    # 60 minutes on September 16
+    response = client.post(
+        "/sessions/",
+        headers={
+            "Authorization": f"Bearer {token}",
+        },
+        json={
+            "project_name": "Afternoon Work",
+            "language": "Python",
+            "started_at": "2026-09-16T14:00:00Z",
+            "ended_at": "2026-09-16T15:00:00Z",
+        },
+    )
+
+    assert response.status_code == 201
+
+    # 30 minutes on September 17
+    response = client.post(
+        "/sessions/",
+        headers={
+            "Authorization": f"Bearer {token}",
+        },
+        json={
+            "project_name": "Next Day Work",
+            "language": "Python",
+            "started_at": "2026-09-17T09:00:00Z",
+            "ended_at": "2026-09-17T09:30:00Z",
+        },
+    )
+
+    assert response.status_code == 201
+
+    response = client.get(
+        "/analytics/daily",
+        headers={
+            "Authorization": f"Bearer {token}",
+        },
+    )
+
+    assert response.status_code == 200
+
+    data = response.json()
+
+    assert len(data) == 2
+
+    days = {
+        item["date"]: item
+        for item in data
+    }
+
+    assert days["2026-09-16"]["total_sessions"] == 2
+    assert days["2026-09-16"]["total_coding_seconds"] == 5400
+
+    assert days["2026-09-17"]["total_sessions"] == 1
+    assert days["2026-09-17"]["total_coding_seconds"] == 1800
+
+def test_weekly_analytics_groups_sessions_in_same_week(client):
+    email = "weekly-grouping@example.com"
+
+    register_user(client, email)
+    token = login_user(client, email)
+
+    # Wednesday, September 16, 2026
+    response = client.post(
+        "/sessions/",
+        headers={
+            "Authorization": f"Bearer {token}",
+        },
+        json={
+            "project_name": "Midweek Work",
+            "language": "Python",
+            "started_at": "2026-09-16T09:00:00Z",
+            "ended_at": "2026-09-16T10:00:00Z",
+        },
+    )
+
+    assert response.status_code == 201
+
+    # Thursday, September 17, 2026
+    response = client.post(
+        "/sessions/",
+        headers={
+            "Authorization": f"Bearer {token}",
+        },
+        json={
+            "project_name": "Next Day Work",
+            "language": "Python",
+            "started_at": "2026-09-17T14:00:00Z",
+            "ended_at": "2026-09-17T15:30:00Z",
+        },
+    )
+
+    assert response.status_code == 201
+
+    response = client.get(
+        "/analytics/weekly",
+        headers={
+            "Authorization": f"Bearer {token}",
+        },
+    )
+
+    assert response.status_code == 200
+
+    data = response.json()
+
+    assert len(data) == 1
+    assert data[0]["total_sessions"] == 2
+    assert data[0]["total_coding_seconds"] == 9000
+
+def test_analytics_groupings_exclude_active_sessions(client):
+    email = "active-grouping@example.com"
+
+    register_user(client, email)
+    token = login_user(client, email)
+
+    # Active Python session
+    response = client.post(
+        "/sessions/",
+        headers={
+            "Authorization": f"Bearer {token}",
+        },
+        json={
+            "project_name": "Active Project",
+            "language": "Python",
+            "started_at": "2026-09-16T09:00:00Z",
+            "ended_at": None,
+        },
+    )
+
+    assert response.status_code == 201
+
+    # Completed JavaScript session
+    response = client.post(
+        "/sessions/",
+        headers={
+            "Authorization": f"Bearer {token}",
+        },
+        json={
+            "project_name": "Completed Project",
+            "language": "JavaScript",
+            "started_at": "2026-09-16T10:00:00Z",
+            "ended_at": "2026-09-16T11:00:00Z",
+        },
+    )
+
+    assert response.status_code == 201
+
+    response = client.get(
+        "/analytics/languages",
+        headers={
+            "Authorization": f"Bearer {token}",
+        },
+    )
+
+    assert response.status_code == 200
+
+    languages = response.json()
+
+    assert len(languages) == 1
+    assert languages[0]["language"] == "JavaScript"
+    assert languages[0]["total_sessions"] == 1
+    assert languages[0]["total_coding_seconds"] == 3600
+
+    response = client.get(
+        "/analytics/projects",
+        headers={
+            "Authorization": f"Bearer {token}",
+        },
+    )
+
+    assert response.status_code == 200
+
+    projects = response.json()
+
+    assert len(projects) == 1
+    assert projects[0]["project_name"] == "Completed Project"
+    assert projects[0]["total_sessions"] == 1
+    assert projects[0]["total_coding_seconds"] == 3600

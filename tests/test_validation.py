@@ -368,25 +368,97 @@ def test_register_duplicate_email_returns_409(client):
 
     assert second_response.status_code == 409
 
-def test_register_duplicate_email_returns_409(client):
-    email = "duplicate@example.com"
+def test_create_session_rejects_empty_language(client):
+    headers = register_and_login(
+        client,
+        "empty-language@example.com",
+    )
 
-    first_response = client.post(
-        "/auth/register",
+    response = client.post(
+        "/sessions/",
+        headers=headers,
         json={
-            "email": email,
-            "password": "password123",
+            "project_name": "DevLog",
+            "language": "",
+            "started_at": "2026-09-16T15:00:00",
         },
     )
 
-    assert first_response.status_code == 201
+    assert response.status_code == 422
 
-    second_response = client.post(
-        "/auth/register",
+def test_create_session_rejects_whitespace_language(client):
+    headers = register_and_login(
+        client,
+        "whitespace-language@example.com",
+    )
+
+    response = client.post(
+        "/sessions/",
+        headers=headers,
         json={
-            "email": email,
-            "password": "password123",
+            "project_name": "DevLog",
+            "language": "   ",
+            "started_at": "2026-09-16T15:00:00",
         },
     )
 
-    assert second_response.status_code == 409
+    assert response.status_code == 422
+
+def test_create_session_rejects_missing_project_name(client):
+    headers = register_and_login(
+        client,
+        "missing-project@example.com",
+    )
+
+    response = client.post(
+        "/sessions/",
+        headers=headers,
+        json={
+            "language": "Python",
+            "started_at": "2026-09-16T15:00:00",
+        },
+    )
+
+    assert response.status_code == 422
+
+def test_create_session_rejects_missing_started_at(client):
+    headers = register_and_login(
+        client,
+        "missing-started-at@example.com",
+    )
+
+    response = client.post(
+        "/sessions/",
+        headers=headers,
+        json={
+            "project_name": "DevLog",
+            "language": "Python",
+        },
+    )
+
+    assert response.status_code == 422
+
+def test_auth_me_requires_authentication(client):
+    response = client.get("/auth/me")
+
+    assert response.status_code == 401
+
+def test_auth_me_rejects_empty_bearer_token(client):
+    response = client.get(
+        "/auth/me",
+        headers={
+            "Authorization": "Bearer ",
+        },
+    )
+
+    assert response.status_code == 401
+
+def test_auth_me_rejects_invalid_authorization_scheme(client):
+    response = client.get(
+        "/auth/me",
+        headers={
+            "Authorization": "Token invalid-token",
+        },
+    )
+
+    assert response.status_code == 401
