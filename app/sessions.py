@@ -1,15 +1,34 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
+
 from app.database import get_db
 from app.dependencies import get_current_user
 from app.models import CodingSession, User
-from app.schemas import SessionCreate, SessionUpdate, SessionResponse
+from app.schemas import SessionCreate, SessionResponse, SessionUpdate
 
 
-router = APIRouter(prefix="/sessions", tags=["Sessions"])
+router = APIRouter(
+    prefix="/sessions",
+    tags=["Sessions"],
+)
 
 
-@router.post("/", response_model=SessionResponse , status_code=status.HTTP_201_CREATED,)
+@router.post(
+    "/",
+    response_model=SessionResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Create a coding session",
+    description=(
+        "Create a coding session for the authenticated user. "
+        "The session owner is determined from the authenticated JWT, "
+        "not from a client-provided user ID."
+    ),
+    responses={
+        401: {
+            "description": "Authentication credentials are missing or invalid."
+        },
+    },
+)
 def create_session(
     session_data: SessionCreate,
     db: Session = Depends(get_db),
@@ -31,10 +50,32 @@ def create_session(
     return new_session
 
 
-@router.get("/", response_model=list[SessionResponse])
+@router.get(
+    "/",
+    response_model=list[SessionResponse],
+    summary="List coding sessions",
+    description=(
+        "Return coding sessions belonging to the authenticated user. "
+        "Results can be paginated using skip and limit."
+    ),
+    responses={
+        401: {
+            "description": "Authentication credentials are missing or invalid."
+        },
+    },
+)
 def get_sessions(
-    skip: int = Query(0, ge=0),
-    limit: int = Query(100, ge=1, le=100),
+    skip: int = Query(
+        0,
+        ge=0,
+        description="Number of sessions to skip before returning results.",
+    ),
+    limit: int = Query(
+        100,
+        ge=1,
+        le=100,
+        description="Maximum number of sessions to return. Must be between 1 and 100.",
+    ),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -49,7 +90,22 @@ def get_sessions(
     return sessions
 
 
-@router.get("/{session_id}", response_model=SessionResponse)
+@router.get(
+    "/{session_id}",
+    response_model=SessionResponse,
+    summary="Get a coding session",
+    description=(
+        "Return a coding session owned by the authenticated user."
+    ),
+    responses={
+        401: {
+            "description": "Authentication credentials are missing or invalid."
+        },
+        404: {
+            "description": "The requested coding session was not found."
+        },
+    },
+)
 def get_session(
     session_id: int,
     db: Session = Depends(get_db),
@@ -65,12 +121,37 @@ def get_session(
     )
 
     if session is None:
-        raise HTTPException(status_code=404, detail="Session not found")
+        raise HTTPException(
+            status_code=404,
+            detail="Session not found",
+        )
 
     return session
 
 
-@router.patch("/{session_id}", response_model=SessionResponse)
+@router.patch(
+    "/{session_id}",
+    response_model=SessionResponse,
+    summary="Update a coding session",
+    description=(
+        "Update one or more fields of a coding session owned by "
+        "the authenticated user."
+    ),
+    responses={
+        401: {
+            "description": "Authentication credentials are missing or invalid."
+        },
+        404: {
+            "description": "The requested coding session was not found."
+        },
+        422: {
+            "description": (
+                "Validation failed, including when ended_at is earlier "
+                "than started_at."
+            )
+        },
+    },
+)
 def update_session(
     session_id: int,
     session_data: SessionUpdate,
@@ -87,12 +168,21 @@ def update_session(
     )
 
     if session is None:
-        raise HTTPException(status_code=404, detail="Session not found")
+        raise HTTPException(
+            status_code=404,
+            detail="Session not found",
+        )
 
     update_data = session_data.model_dump(exclude_unset=True)
 
-    new_started_at = update_data.get("started_at", session.started_at)
-    new_ended_at = update_data.get("ended_at", session.ended_at)
+    new_started_at = update_data.get(
+        "started_at",
+        session.started_at,
+    )
+    new_ended_at = update_data.get(
+        "ended_at",
+        session.ended_at,
+    )
 
     if new_ended_at is not None and new_ended_at < new_started_at:
         raise HTTPException(
@@ -109,7 +199,21 @@ def update_session(
     return session
 
 
-@router.delete("/{session_id}")
+@router.delete(
+    "/{session_id}",
+    summary="Delete a coding session",
+    description=(
+        "Delete a coding session owned by the authenticated user."
+    ),
+    responses={
+        401: {
+            "description": "Authentication credentials are missing or invalid."
+        },
+        404: {
+            "description": "The requested coding session was not found."
+        },
+    },
+)
 def delete_session(
     session_id: int,
     db: Session = Depends(get_db),
@@ -125,7 +229,10 @@ def delete_session(
     )
 
     if session is None:
-        raise HTTPException(status_code=404, detail="Session not found")
+        raise HTTPException(
+            status_code=404,
+            detail="Session not found",
+        )
 
     db.delete(session)
     db.commit()

@@ -55,7 +55,9 @@ The database stores a password hash, not the user's original password.
 
 Passwords must never be stored as plaintext.
 
-Password hashing and authentication will be implemented later in M3 — Authentication.
+The database stores a password hash rather than the user's original
+password. Password hashing is handled by the application authentication
+layer.
 
 Timestamps
 
@@ -139,18 +141,18 @@ Duration is derived from:
 
 duration = ended_at - started_at
 
-For example:
+eg:-
 
 started_at = 10:00
 ended_at   = 11:30
 
 duration = 90 minutes
 
-Why?
+Because,
 
 Storing both timestamps and duration creates multiple sources of truth.
 
-For example:
+like,
 
 started_at = 10:00
 ended_at   = 11:30
@@ -164,7 +166,7 @@ Future consideration
 
 If a future requirement makes storing duration necessary for performance or historical accuracy, we can revisit this decision.
 
-We should not optimize for that requirement before it exists.
+
 
 ---
 
@@ -183,7 +185,8 @@ This represents an active/incomplete session.
 
 Duration cannot be finalized until "ended_at" exists.
 
-The application will later define how active sessions are handled by the API.
+The API allows active sessions by accepting a NULL `ended_at` value.
+Duration-based analytics exclude sessions that have not yet ended.
 
 ---
 
@@ -265,24 +268,36 @@ The initial design makes the following assumptions:
 
 ---
 
-11. Deliberately Deferred Decisions
+11. Current and Future Decisions
 
-The following decisions are intentionally left for later milestones:
+The initial database design has now been extended by later application
+milestones.
 
-- authentication implementation
-- password hashing algorithm
-- JWT design
-- authorization rules
+Implemented after the initial database design:
+
+- authentication
+- password hashing
+- JWT authentication
 - API validation
-- session ownership enforcement at the API layer
+- session ownership enforcement
 - analytics queries
-- indexes beyond those required by primary/unique/foreign-key constraints
+- session activity handling
+
+These features are implemented at the application/API layer while the
+database continues to enforce the core data integrity rules described above.
+
+The following decisions remain intentionally deferred:
+
+- additional indexes based on measured query requirements
 - soft deletion
 - project and language normalization
 - storing precomputed duration
-- production database deployment
+- advanced data retention requirements
+- production-specific database optimizations
+- additional schema changes required by future product features
 
-These should be introduced when the corresponding requirements justify them.
+These decisions should be introduced only when actual requirements justify
+them.
 
 ---
 

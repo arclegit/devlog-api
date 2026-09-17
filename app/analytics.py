@@ -5,13 +5,36 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.dependencies import get_current_user
 from app.models import CodingSession, User
-from app.schemas import ( AnalyticsSummaryResponse, DailyAnalyticsResponse, LanguageAnalyticsResponse, ProjectAnalyticsResponse, WeeklyAnalyticsResponse, )
+from app.schemas import (
+    AnalyticsSummaryResponse,
+    DailyAnalyticsResponse,
+    LanguageAnalyticsResponse,
+    ProjectAnalyticsResponse,
+    WeeklyAnalyticsResponse,
+)
 
 
-router = APIRouter(prefix="/analytics", tags=["Analytics"])
+router = APIRouter(
+    prefix="/analytics",
+    tags=["Analytics"],
+)
 
 
-@router.get("/summary", response_model=AnalyticsSummaryResponse)
+@router.get(
+    "/summary",
+    response_model=AnalyticsSummaryResponse,
+    summary="Get activity summary",
+    description=(
+        "Return the total number of completed coding sessions, "
+        "total coding time, and average completed session duration "
+        "for the authenticated user."
+    ),
+    responses={
+        401: {
+            "description": "Authentication credentials are missing or invalid."
+        },
+    },
+)
 def get_analytics_summary(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
@@ -51,7 +74,21 @@ def get_analytics_summary(
         average_session_seconds=average_session_seconds,
     )
 
-@router.get("/languages", response_model=list[LanguageAnalyticsResponse])
+
+@router.get(
+    "/languages",
+    response_model=list[LanguageAnalyticsResponse],
+    summary="Get activity by language",
+    description=(
+        "Return completed coding activity grouped by programming language "
+        "for the authenticated user."
+    ),
+    responses={
+        401: {
+            "description": "Authentication credentials are missing or invalid."
+        },
+    },
+)
 def get_language_analytics(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
@@ -94,7 +131,21 @@ def get_language_analytics(
         for language, total_sessions, total_coding_seconds in results
     ]
 
-@router.get("/projects", response_model=list[ProjectAnalyticsResponse])
+
+@router.get(
+    "/projects",
+    response_model=list[ProjectAnalyticsResponse],
+    summary="Get activity by project",
+    description=(
+        "Return completed coding activity grouped by project "
+        "for the authenticated user."
+    ),
+    responses={
+        401: {
+            "description": "Authentication credentials are missing or invalid."
+        },
+    },
+)
 def get_project_analytics(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
@@ -137,7 +188,21 @@ def get_project_analytics(
         for project_name, total_sessions, total_coding_seconds in results
     ]
 
-@router.get("/daily", response_model=list[DailyAnalyticsResponse])
+
+@router.get(
+    "/daily",
+    response_model=list[DailyAnalyticsResponse],
+    summary="Get daily activity",
+    description=(
+        "Return completed coding activity grouped by the day "
+        "of the session start time for the authenticated user."
+    ),
+    responses={
+        401: {
+            "description": "Authentication credentials are missing or invalid."
+        },
+    },
+)
 def get_daily_analytics(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
@@ -180,16 +245,32 @@ def get_daily_analytics(
 
     return [
         DailyAnalyticsResponse(
-            date=date_value.strftime("%Y-%m-%d")
-            if hasattr(date_value, "strftime")
-            else str(date_value),
+            date=(
+                date_value.strftime("%Y-%m-%d")
+                if hasattr(date_value, "strftime")
+                else str(date_value)
+            ),
             total_sessions=total_sessions,
             total_coding_seconds=total_coding_seconds,
         )
         for date_value, total_sessions, total_coding_seconds in results
     ]
 
-@router.get("/weekly", response_model=list[WeeklyAnalyticsResponse])
+
+@router.get(
+    "/weekly",
+    response_model=list[WeeklyAnalyticsResponse],
+    summary="Get weekly activity",
+    description=(
+        "Return completed coding activity grouped by week "
+        "for the authenticated user."
+    ),
+    responses={
+        401: {
+            "description": "Authentication credentials are missing or invalid."
+        },
+    },
+)
 def get_weekly_analytics(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),

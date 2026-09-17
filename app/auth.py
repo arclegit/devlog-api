@@ -4,11 +4,10 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.database import get_db
+from app.dependencies import get_current_user
 from app.models import User
 from app.schemas import Token, UserRegister, UserResponse
 from app.security import create_access_token, hash_password, verify_password
-from app.dependencies import get_current_user
-
 
 
 router = APIRouter(
@@ -21,8 +20,21 @@ router = APIRouter(
     "/register",
     response_model=UserResponse,
     status_code=status.HTTP_201_CREATED,
+    summary="Register a new user",
+    description=(
+        "Create a new DevLog user account using an email address and password. "
+        "The password is securely hashed before it is stored."
+    ),
+    responses={
+        409: {
+            "description": "The email address is already registered."
+        },
+    },
 )
-def register(user_data: UserRegister, db: Session = Depends(get_db)):
+def register(
+    user_data: UserRegister,
+    db: Session = Depends(get_db),
+):
     existing_user = db.scalar(
         select(User).where(User.email == user_data.email)
     )
@@ -45,7 +57,21 @@ def register(user_data: UserRegister, db: Session = Depends(get_db)):
     return user
 
 
-@router.post("/login", response_model=Token)
+@router.post(
+    "/login",
+    response_model=Token,
+    summary="Log in",
+    description=(
+        "Authenticate a user with their email address and password "
+        "and return a JWT access token. "
+        "The OAuth2 form field named 'username' represents the user's email address."
+    ),
+    responses={
+        401: {
+            "description": "Invalid email or password."
+        },
+    },
+)
 def login(
     form_data: OAuth2PasswordRequestForm = Depends(),
     db: Session = Depends(get_db),
@@ -71,7 +97,20 @@ def login(
     }
 
 
-
-@router.get("/me", response_model=UserResponse)
-def get_me(current_user: User = Depends(get_current_user)):
+@router.get(
+    "/me",
+    response_model=UserResponse,
+    summary="Get current user",
+    description=(
+        "Return the account information of the currently authenticated user."
+    ),
+    responses={
+        401: {
+            "description": "Authentication credentials are missing or invalid."
+        },
+    },
+)
+def get_me(
+    current_user: User = Depends(get_current_user),
+):
     return current_user
