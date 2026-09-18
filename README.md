@@ -1,20 +1,20 @@
-#DevLog Api
+DevLog Api
 
 REST API to log coding sessions and get analytics on your dev time.
 
 Built with FastAPI + PostgreSQL as a backend engineering project.
 
-##What it does
+What it does
 
 - **Auth:** Register, login with JWT, `/auth/me`
 - **Sessions:** CRUD for coding sessions. Active sessions have `ended_at = null`. Users can only see their own sessions.
 - **Analytics:** Summary, by language, by project, daily, weekly. Duration is computed as `ended_at - started_at`, not stored.
 
-##Stack
+Stack
 
 Python, FastAPI, Pydantic v2, SQLAlchemy 2.0, PostgreSQL + psycopg, Alembic, PyJWT + pwdlib, Uvicorn, pytest + HTTPX
 
-##Structure
+Structure
 
 app/
   http://main.py         # app factory & routers
@@ -32,7 +32,7 @@ tests/            # pytest, sqlite in-memory
 docs/
   http://database-design.md
 
-##Setup
+Setup
 
 ```bash
 git clone https://github.com/arclegit/devlog-api.git
