@@ -22,6 +22,13 @@ class User(Base):
         nullable=False,
     )
 
+    timezone: Mapped[str] = mapped_column(
+        String(64), default="UTC", server_default="UTC", nullable=False
+    )
+    deleted_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         default=lambda: datetime.now(timezone.utc),

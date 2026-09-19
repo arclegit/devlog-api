@@ -1,4 +1,5 @@
 from datetime import datetime
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from pydantic import (
     BaseModel,
@@ -18,6 +19,18 @@ class UserRegister(BaseModel):
         min_length=8,
         description="Account password. Must contain at least 8 characters.",
     )
+    timezone: str = Field(default="UTC", description="IANA timezone, for example Asia/Kolkata.")
+
+    @field_validator("timezone")
+    @classmethod
+    def validate_timezone(cls, value: str) -> str:
+        try:
+            ZoneInfo(value)
+        except ZoneInfoNotFoundError as exc:
+            raise ValueError("timezone must be a valid IANA timezone") from exc
+        return value
+
+    model_config = ConfigDict(json_schema_extra={"example": {"email": "developer@example.com", "password": "a-strong-password", "timezone": "Asia/Kolkata"}})
 
 
 class UserResponse(BaseModel):
@@ -27,6 +40,7 @@ class UserResponse(BaseModel):
     email: EmailStr = Field(
         description="Email address associated with the user account.",
     )
+    timezone: str
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -38,6 +52,19 @@ class Token(BaseModel):
     token_type: str = Field(
         description="Authentication scheme used with the access token.",
     )
+
+
+class PasswordChange(BaseModel):
+    current_password: str = Field(min_length=8)
+    new_password: str = Field(min_length=8)
+
+    model_config = ConfigDict(json_schema_extra={"example": {"current_password": "old-password", "new_password": "new-strong-password"}})
+
+
+class AccountDelete(BaseModel):
+    password: str = Field(min_length=8)
+
+    model_config = ConfigDict(json_schema_extra={"example": {"password": "your-password"}})
 
 
 class SessionCreate(BaseModel):
@@ -76,12 +103,14 @@ class SessionCreate(BaseModel):
 
     @model_validator(mode="after")
     def validate_timestamps(self):
-        if self.ended_at is not None and self.ended_at < self.started_at:
+        if self.ended_at is not None and self.ended_at <= self.started_at:
             raise ValueError(
-                "ended_at must be greater than or equal to started_at"
+                "ended_at must be greater than started_at"
             )
 
         return self
+
+    model_config = ConfigDict(json_schema_extra={"example": {"project_name": "DevLog API", "language": "Python", "started_at": "2026-09-19T09:00:00Z", "ended_at": "2026-09-19T10:30:00Z", "description": "Implemented API documentation."}})
 
 
 class SessionUpdate(BaseModel):
@@ -123,6 +152,8 @@ class SessionUpdate(BaseModel):
             raise ValueError("field must not be empty")
 
         return value
+
+    model_config = ConfigDict(json_schema_extra={"example": {"description": "Added production readiness work.", "ended_at": "2026-09-19T10:30:00Z"}})
 
 
 class SessionResponse(BaseModel):

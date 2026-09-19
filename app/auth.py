@@ -1,4 +1,6 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from datetime import datetime, timezone
+
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -6,8 +8,9 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.dependencies import get_current_user
 from app.models import User
-from app.schemas import Token, UserRegister, UserResponse
+from app.schemas import AccountDelete, PasswordChange, Token, UserRegister, UserResponse
 from app.security import create_access_token, hash_password, verify_password
+from app.rate_limit import limiter
 
 
 router = APIRouter(
@@ -31,7 +34,9 @@ router = APIRouter(
         },
     },
 )
+@limiter.limit("5/minute")
 def register(
+    request: Request,
     user_data: UserRegister,
     db: Session = Depends(get_db),
 ):
@@ -48,6 +53,7 @@ def register(
     user = User(
         email=user_data.email,
         password_hash=hash_password(user_data.password),
+        timezone=user_data.timezone,
     )
 
     db.add(user)
@@ -72,12 +78,14 @@ def register(
         },
     },
 )
+@limiter.limit("10/minute")
 def login(
+    request: Request,
     form_data: OAuth2PasswordRequestForm = Depends(),
     db: Session = Depends(get_db),
 ):
     user = db.scalar(
-        select(User).where(User.email == form_data.username)
+        select(User).where(User.email == form_data.username, User.deleted_at.is_(None))
     )
 
     if not user or not verify_password(
@@ -114,3 +122,21 @@ def get_me(
     current_user: User = Depends(get_current_user),
 ):
     return current_user
+
+
+@router.post("/change-password", status_code=status.HTTP_204_NO_CONTENT, summary="Change account password")
+def change_password(password_data: PasswordChange, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    if not verify_password(password_data.current_password, current_user.password_hash):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Current password is incorrect")
+    current_user.password_hash = hash_password(password_data.new_password)
+    db.commit()
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.delete("/me", status_code=status.HTTP_204_NO_CONTENT, summary="Soft-delete the current account")
+def delete_account(delete_data: AccountDelete, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    if not verify_password(delete_data.password, current_user.password_hash):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Password is incorrect")
+    current_user.deleted_at = datetime.now(timezone.utc)
+    db.commit()
+    return Response(status_code=status.HTTP_204_NO_CONTENT)

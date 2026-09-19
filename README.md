@@ -1,5 +1,9 @@
 DevLog Api
 
+[![CI](https://github.com/arclegit/devlog-api/actions/workflows/ci.yml/badge.svg)](https://github.com/arclegit/devlog-api/actions/workflows/ci.yml)
+![Coverage gate](https://img.shields.io/badge/coverage-%E2%89%A580%25-brightgreen)
+![License](https://img.shields.io/badge/license-MIT-blue)
+
 REST API to log coding sessions and get analytics on your dev time.
 
 Built with FastAPI + PostgreSQL as a backend engineering project.
@@ -7,8 +11,10 @@ Built with FastAPI + PostgreSQL as a backend engineering project.
 What it does
 
 - **Auth:** Register, login with JWT, `/auth/me`
+- **Account lifecycle:** Password change, soft account deletion, and a validated IANA timezone preference.
 - **Sessions:** CRUD for coding sessions. Active sessions have `ended_at = null`. Users can only see their own sessions.
-- **Analytics:** Summary, by language, by project, daily, weekly. Duration is computed as `ended_at - started_at`, not stored.
+- **Analytics:** Summary, by language, by project, daily, weekly, with `from` / `to` filters. Duration is computed as `ended_at - started_at`, not stored.
+- **Operations:** JSON structured request logs, request IDs, rate-limited authentication, and `/health` / `/ready` probes.
 
 Stack
 
@@ -69,6 +75,8 @@ Endpoints
 POST /auth/register
 POST /auth/login
 GET  /auth/me
+POST /auth/change-password
+DELETE /auth/me
 
 POST   /sessions/
 GET    /sessions/
@@ -83,11 +91,25 @@ GET /analytics/daily
 GET /analytics/weekly
 Auth via `Authorization: Bearer <token>`
 
+All errors share the form `{"error": {"code", "message", "request_id", "details?"}}`. Send `X-Request-ID` to provide your own correlation ID, or read the one returned in every response.
+
+Analytics can be scoped with ISO 8601 timestamps, for example: `GET /analytics/summary?from=2026-01-01T00:00:00Z&to=2026-01-31T23:59:59Z`.
+
+Docker
+
+```bash
+docker compose up --build
+```
+
+The API will be available at `http://localhost:8000`. The API container runs Alembic migrations before starting. The compose credentials are development-only; set real environment secrets for deployment.
+
 Testing
 
 Tests use SQLite in-memory, prod uses PostgreSQL.
 pytest -q
 53 passed
+
+CI runs the suite with coverage and enforces an 80% minimum. The workflow is in `.github/workflows/ci.yml`.
 Notes
 
 - Passwords are hashed, never stored plain

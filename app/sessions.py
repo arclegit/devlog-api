@@ -289,10 +289,10 @@ def update_session(
     )
 
     # Validate the relationship between started_at and ended_at.
-    if new_ended_at is not None and new_ended_at < new_started_at:
+    if new_ended_at is not None and new_ended_at <= new_started_at:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="ended_at must be greater than or equal to started_at",
+            detail="ended_at must be greater than started_at",
         )
 
     # If the update would turn this session into an active session,

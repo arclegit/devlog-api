@@ -1,3 +1,9 @@
+import os
+
+os.environ["RATE_LIMIT_ENABLED"] = "false"
+os.environ.setdefault("DATABASE_URL", "sqlite:///:memory:")
+os.environ.setdefault("JWT_SECRET_KEY", "test-only-secret")
+
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine

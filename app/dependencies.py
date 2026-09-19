@@ -41,7 +41,7 @@ def get_current_user(
         raise credentials_exception
 
     user = db.scalar(
-        select(User).where(User.id == user_id)
+        select(User).where(User.id == user_id, User.deleted_at.is_(None))
     )
 
     if user is None:

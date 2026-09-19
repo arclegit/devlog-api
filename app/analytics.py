@@ -1,4 +1,6 @@
-from fastapi import APIRouter, Depends
+from datetime import datetime
+
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import Float, cast, func
 from sqlalchemy.orm import Session
 
@@ -20,6 +22,17 @@ router = APIRouter(
 )
 
 
+def analytics_filters(user_id: int, from_: datetime | None, to: datetime | None):
+    if from_ is not None and to is not None and from_ > to:
+        raise HTTPException(status_code=422, detail="from must be earlier than or equal to to")
+    filters = [CodingSession.user_id == user_id, CodingSession.ended_at.is_not(None)]
+    if from_ is not None:
+        filters.append(CodingSession.started_at >= from_)
+    if to is not None:
+        filters.append(CodingSession.started_at <= to)
+    return filters
+
+
 @router.get(
     "/summary",
     response_model=AnalyticsSummaryResponse,
@@ -36,6 +49,8 @@ router = APIRouter(
     },
 )
 def get_analytics_summary(
+    from_: datetime | None = Query(None, alias="from", description="Include sessions starting at or after this ISO 8601 timestamp."),
+    to: datetime | None = Query(None, description="Include sessions starting at or before this ISO 8601 timestamp."),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -59,10 +74,7 @@ def get_analytics_summary(
             cast(func.coalesce(func.sum(duration), 0), Float),
             cast(func.coalesce(func.avg(duration), 0), Float),
         )
-        .filter(
-            CodingSession.user_id == current_user.id,
-            CodingSession.ended_at.is_not(None),
-        )
+        .filter(*analytics_filters(current_user.id, from_, to))
         .one()
     )
 
@@ -90,6 +102,8 @@ def get_analytics_summary(
     },
 )
 def get_language_analytics(
+    from_: datetime | None = Query(None, alias="from"),
+    to: datetime | None = Query(None),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -113,10 +127,7 @@ def get_language_analytics(
             func.count(CodingSession.id).label("total_sessions"),
             cast(func.sum(duration), Float).label("total_coding_seconds"),
         )
-        .filter(
-            CodingSession.user_id == current_user.id,
-            CodingSession.ended_at.is_not(None),
-        )
+        .filter(*analytics_filters(current_user.id, from_, to))
         .group_by(CodingSession.language)
         .order_by(func.sum(duration).desc())
         .all()
@@ -147,6 +158,8 @@ def get_language_analytics(
     },
 )
 def get_project_analytics(
+    from_: datetime | None = Query(None, alias="from"),
+    to: datetime | None = Query(None),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -170,10 +183,7 @@ def get_project_analytics(
             func.count(CodingSession.id).label("total_sessions"),
             cast(func.sum(duration), Float).label("total_coding_seconds"),
         )
-        .filter(
-            CodingSession.user_id == current_user.id,
-            CodingSession.ended_at.is_not(None),
-        )
+        .filter(*analytics_filters(current_user.id, from_, to))
         .group_by(CodingSession.project_name)
         .order_by(func.sum(duration).desc())
         .all()
@@ -204,6 +214,8 @@ def get_project_analytics(
     },
 )
 def get_daily_analytics(
+    from_: datetime | None = Query(None, alias="from"),
+    to: datetime | None = Query(None),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -218,9 +230,10 @@ def get_daily_analytics(
             * 86400
         )
     else:
+        local_started_at = CodingSession.started_at.op("AT TIME ZONE")(current_user.timezone)
         date_group = func.date_trunc(
             "day",
-            CodingSession.started_at,
+            local_started_at,
         )
 
         duration = func.extract(
@@ -234,10 +247,7 @@ def get_daily_analytics(
             func.count(CodingSession.id).label("total_sessions"),
             cast(func.sum(duration), Float).label("total_coding_seconds"),
         )
-        .filter(
-            CodingSession.user_id == current_user.id,
-            CodingSession.ended_at.is_not(None),
-        )
+        .filter(*analytics_filters(current_user.id, from_, to))
         .group_by(date_group)
         .order_by(date_group.asc())
         .all()
@@ -272,6 +282,8 @@ def get_daily_analytics(
     },
 )
 def get_weekly_analytics(
+    from_: datetime | None = Query(None, alias="from"),
+    to: datetime | None = Query(None),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -289,9 +301,10 @@ def get_weekly_analytics(
             * 86400
         )
     else:
+        local_started_at = CodingSession.started_at.op("AT TIME ZONE")(current_user.timezone)
         week_group = func.date_trunc(
             "week",
-            CodingSession.started_at,
+            local_started_at,
         )
 
         duration = func.extract(
@@ -305,10 +318,7 @@ def get_weekly_analytics(
             func.count(CodingSession.id).label("total_sessions"),
             cast(func.sum(duration), Float).label("total_coding_seconds"),
         )
-        .filter(
-            CodingSession.user_id == current_user.id,
-            CodingSession.ended_at.is_not(None),
-        )
+        .filter(*analytics_filters(current_user.id, from_, to))
         .group_by(week_group)
         .order_by(week_group.asc())
         .all()
