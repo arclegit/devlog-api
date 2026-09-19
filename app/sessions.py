@@ -1,4 +1,7 @@
+from datetime import datetime, timezone
+
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -27,6 +30,9 @@ router = APIRouter(
         401: {
             "description": "Authentication credentials are missing or invalid."
         },
+        409: {
+            "description": "The user already has an active coding session."
+        },
     },
 )
 def create_session(
@@ -34,6 +40,23 @@ def create_session(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    # Only active sessions are subject to the one-active-session rule.
+    if session_data.ended_at is None:
+        active_session = (
+            db.query(CodingSession)
+            .filter(
+                CodingSession.user_id == current_user.id,
+                CodingSession.ended_at.is_(None),
+            )
+            .first()
+        )
+
+        if active_session is not None:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="User already has an active coding session",
+            )
+
     new_session = CodingSession(
         user_id=current_user.id,
         project_name=session_data.project_name,
@@ -44,10 +67,72 @@ def create_session(
     )
 
     db.add(new_session)
-    db.commit()
+
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="User already has an active coding session",
+        )
+
     db.refresh(new_session)
 
     return new_session
+
+
+@router.post(
+    "/{session_id}/end",
+    response_model=SessionResponse,
+    summary="End a coding session",
+    description=(
+        "End an active coding session owned by the authenticated user."
+    ),
+    responses={
+        401: {
+            "description": "Authentication credentials are missing or invalid."
+        },
+        404: {
+            "description": "The requested coding session was not found."
+        },
+        409: {
+            "description": "The coding session is already ended."
+        },
+    },
+)
+def end_session(
+    session_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    session = (
+        db.query(CodingSession)
+        .filter(
+            CodingSession.id == session_id,
+            CodingSession.user_id == current_user.id,
+        )
+        .first()
+    )
+
+    if session is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Session not found",
+        )
+
+    if session.ended_at is not None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Session is already ended",
+        )
+
+    session.ended_at = datetime.now(timezone.utc)
+
+    db.commit()
+    db.refresh(session)
+
+    return session
 
 
 @router.get(
@@ -74,7 +159,10 @@ def get_sessions(
         100,
         ge=1,
         le=100,
-        description="Maximum number of sessions to return. Must be between 1 and 100.",
+        description=(
+            "Maximum number of sessions to return. "
+            "Must be between 1 and 100."
+        ),
     ),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
@@ -122,7 +210,7 @@ def get_session(
 
     if session is None:
         raise HTTPException(
-            status_code=404,
+            status_code=status.HTTP_404_NOT_FOUND,
             detail="Session not found",
         )
 
@@ -143,6 +231,9 @@ def get_session(
         },
         404: {
             "description": "The requested coding session was not found."
+        },
+        409: {
+            "description": "The update would violate the session lifecycle rules."
         },
         422: {
             "description": (
@@ -169,31 +260,76 @@ def update_session(
 
     if session is None:
         raise HTTPException(
-            status_code=404,
+            status_code=status.HTTP_404_NOT_FOUND,
             detail="Session not found",
         )
 
     update_data = session_data.model_dump(exclude_unset=True)
 
+    # A completed session cannot be reopened.
+    if (
+        session.ended_at is not None
+        and "ended_at" in update_data
+        and update_data["ended_at"] is None
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Completed sessions cannot be reopened",
+        )
+
+    # Build the final state of the session before applying changes.
     new_started_at = update_data.get(
         "started_at",
         session.started_at,
     )
+
     new_ended_at = update_data.get(
         "ended_at",
         session.ended_at,
     )
 
+    # Validate the relationship between started_at and ended_at.
     if new_ended_at is not None and new_ended_at < new_started_at:
         raise HTTPException(
-            status_code=422,
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail="ended_at must be greater than or equal to started_at",
         )
 
+    # If the update would turn this session into an active session,
+    # make sure the user does not already have another active session.
+    if (
+        new_ended_at is None
+        and session.ended_at is not None
+    ):
+        active_session = (
+            db.query(CodingSession)
+            .filter(
+                CodingSession.user_id == current_user.id,
+                CodingSession.ended_at.is_(None),
+                CodingSession.id != session.id,
+            )
+            .first()
+        )
+
+        if active_session is not None:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="User already has an active coding session",
+            )
+
+    # Apply the validated changes.
     for field, value in update_data.items():
         setattr(session, field, value)
 
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="User already has an active coding session",
+        )
+
     db.refresh(session)
 
     return session
@@ -230,7 +366,7 @@ def delete_session(
 
     if session is None:
         raise HTTPException(
-            status_code=404,
+            status_code=status.HTTP_404_NOT_FOUND,
             detail="Session not found",
         )
 

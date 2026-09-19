@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 
-from sqlalchemy import DateTime, ForeignKey, String, Text
+from sqlalchemy import DateTime, ForeignKey, Index, String, Text, text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
@@ -10,8 +10,17 @@ class User(Base):
     __tablename__ = "users"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    email: Mapped[str] = mapped_column(String(255), unique=True, nullable=False)
-    password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
+
+    email: Mapped[str] = mapped_column(
+        String(255),
+        unique=True,
+        nullable=False,
+    )
+
+    password_hash: Mapped[str] = mapped_column(
+        String(255),
+        nullable=False,
+    )
 
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
@@ -31,8 +40,19 @@ class User(Base):
         cascade="all, delete-orphan",
     )
 
+
 class CodingSession(Base):
     __tablename__ = "coding_sessions"
+
+    __table_args__ = (
+        Index(
+            "ix_coding_sessions_one_active_per_user",
+            "user_id",
+            unique=True,
+            postgresql_where=text("ended_at IS NULL"),
+            sqlite_where=text("ended_at IS NULL"),
+        ),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True)
 
@@ -41,8 +61,15 @@ class CodingSession(Base):
         nullable=False,
     )
 
-    project_name: Mapped[str] = mapped_column(String(255), nullable=False)
-    language: Mapped[str] = mapped_column(String(100), nullable=False)
+    project_name: Mapped[str] = mapped_column(
+        String(255),
+        nullable=False,
+    )
+
+    language: Mapped[str] = mapped_column(
+        String(100),
+        nullable=False,
+    )
 
     started_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
