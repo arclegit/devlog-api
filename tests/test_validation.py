@@ -61,6 +61,163 @@ def test_create_active_session_with_no_end_time(client):
     assert response.json()["ended_at"] is None
 
 
+def test_create_second_active_session_returns_409(client):
+    headers = register_and_login(
+        client,
+        "second-active@example.com",
+    )
+
+    first_response = client.post(
+        "/sessions/",
+        headers=headers,
+        json={
+            "project_name": "DevLog",
+            "language": "Python",
+            "started_at": "2026-09-16T15:00:00",
+        },
+    )
+
+    assert first_response.status_code == 201
+
+    second_response = client.post(
+        "/sessions/",
+        headers=headers,
+        json={
+            "project_name": "DevLog",
+            "language": "Python",
+            "started_at": "2026-09-16T16:00:00",
+        },
+    )
+
+    assert second_response.status_code == 409
+
+
+def test_different_users_can_have_active_sessions(client):
+    user_a_headers = register_and_login(
+        client,
+        "active-user-a@example.com",
+    )
+
+    user_b_headers = register_and_login(
+        client,
+        "active-user-b@example.com",
+    )
+
+    user_a_response = client.post(
+        "/sessions/",
+        headers=user_a_headers,
+        json={
+            "project_name": "DevLog A",
+            "language": "Python",
+            "started_at": "2026-09-16T15:00:00",
+        },
+    )
+
+    assert user_a_response.status_code == 201
+
+    user_b_response = client.post(
+        "/sessions/",
+        headers=user_b_headers,
+        json={
+            "project_name": "DevLog B",
+            "language": "Python",
+            "started_at": "2026-09-16T15:00:00",
+        },
+    )
+
+    assert user_b_response.status_code == 201
+
+
+def test_end_active_session(client):
+    headers = register_and_login(
+        client,
+        "end-active@example.com",
+    )
+
+    create_response = client.post(
+        "/sessions/",
+        headers=headers,
+        json={
+            "project_name": "DevLog",
+            "language": "Python",
+            "started_at": "2026-09-16T15:00:00",
+        },
+    )
+
+    assert create_response.status_code == 201
+
+    session_id = create_response.json()["id"]
+
+    response = client.post(
+        f"/sessions/{session_id}/end",
+        headers=headers,
+    )
+
+    assert response.status_code == 200
+    assert response.json()["ended_at"] is not None
+
+
+def test_end_already_ended_session_returns_409(client):
+    headers = register_and_login(
+        client,
+        "already-ended@example.com",
+    )
+
+    create_response = client.post(
+        "/sessions/",
+        headers=headers,
+        json={
+            "project_name": "DevLog",
+            "language": "Python",
+            "started_at": "2026-09-16T15:00:00",
+            "ended_at": "2026-09-16T16:00:00",
+        },
+    )
+
+    assert create_response.status_code == 201
+
+    session_id = create_response.json()["id"]
+
+    response = client.post(
+        f"/sessions/{session_id}/end",
+        headers=headers,
+    )
+
+    assert response.status_code == 409
+
+
+def test_completed_session_cannot_be_reopened(client):
+    headers = register_and_login(
+        client,
+        "reopen-session@example.com",
+    )
+
+    create_response = client.post(
+        "/sessions/",
+        headers=headers,
+        json={
+            "project_name": "DevLog",
+            "language": "Python",
+            "started_at": "2026-09-16T15:00:00",
+            "ended_at": "2026-09-16T16:00:00",
+        },
+    )
+
+    assert create_response.status_code == 201
+
+    session_id = create_response.json()["id"]
+
+    response = client.patch(
+        f"/sessions/{session_id}",
+        headers=headers,
+        json={
+            "ended_at": None,
+        },
+    )
+
+    assert response.status_code == 409
+
+
 def test_update_session_rejects_invalid_end_time(client):
     headers = register_and_login(client)
 
@@ -146,8 +303,12 @@ def test_update_session_accepts_valid_end_time(client):
     assert response.status_code == 200
     assert response.json()["ended_at"] is not None
 
+
 def test_create_session_rejects_empty_project_name(client):
-    headers = register_and_login(client, "empty-project@example.com")
+    headers = register_and_login(
+        client,
+        "empty-project@example.com",
+    )
 
     response = client.post(
         "/sessions/",
@@ -163,7 +324,10 @@ def test_create_session_rejects_empty_project_name(client):
 
 
 def test_create_session_rejects_whitespace_project_name(client):
-    headers = register_and_login(client, "whitespace-project@example.com")
+    headers = register_and_login(
+        client,
+        "whitespace-project@example.com",
+    )
 
     response = client.post(
         "/sessions/",
@@ -179,7 +343,10 @@ def test_create_session_rejects_whitespace_project_name(client):
 
 
 def test_create_session_rejects_missing_required_field(client):
-    headers = register_and_login(client, "missing-field@example.com")
+    headers = register_and_login(
+        client,
+        "missing-field@example.com",
+    )
 
     response = client.post(
         "/sessions/",
@@ -194,7 +361,10 @@ def test_create_session_rejects_missing_required_field(client):
 
 
 def test_create_session_rejects_invalid_timestamp_format(client):
-    headers = register_and_login(client, "invalid-timestamp@example.com")
+    headers = register_and_login(
+        client,
+        "invalid-timestamp@example.com",
+    )
 
     response = client.post(
         "/sessions/",
@@ -207,6 +377,7 @@ def test_create_session_rejects_invalid_timestamp_format(client):
     )
 
     assert response.status_code == 422
+
 
 def test_get_nonexistent_session_returns_404(client):
     headers = register_and_login(
@@ -311,6 +482,7 @@ def test_sessions_rejects_limit_above_100(client):
 
     assert response.status_code == 422
 
+
 def test_register_rejects_invalid_email(client):
     response = client.post(
         "/auth/register",
@@ -345,6 +517,7 @@ def test_register_rejects_missing_password(client):
 
     assert response.status_code == 422
 
+
 def test_register_duplicate_email_returns_409(client):
     email = "duplicate@example.com"
 
@@ -368,6 +541,7 @@ def test_register_duplicate_email_returns_409(client):
 
     assert second_response.status_code == 409
 
+
 def test_create_session_rejects_empty_language(client):
     headers = register_and_login(
         client,
@@ -385,6 +559,7 @@ def test_create_session_rejects_empty_language(client):
     )
 
     assert response.status_code == 422
+
 
 def test_create_session_rejects_whitespace_language(client):
     headers = register_and_login(
@@ -404,6 +579,7 @@ def test_create_session_rejects_whitespace_language(client):
 
     assert response.status_code == 422
 
+
 def test_create_session_rejects_missing_project_name(client):
     headers = register_and_login(
         client,
@@ -420,6 +596,7 @@ def test_create_session_rejects_missing_project_name(client):
     )
 
     assert response.status_code == 422
+
 
 def test_create_session_rejects_missing_started_at(client):
     headers = register_and_login(
@@ -438,10 +615,12 @@ def test_create_session_rejects_missing_started_at(client):
 
     assert response.status_code == 422
 
+
 def test_auth_me_requires_authentication(client):
     response = client.get("/auth/me")
 
     assert response.status_code == 401
+
 
 def test_auth_me_rejects_empty_bearer_token(client):
     response = client.get(
@@ -452,6 +631,7 @@ def test_auth_me_rejects_empty_bearer_token(client):
     )
 
     assert response.status_code == 401
+
 
 def test_auth_me_rejects_invalid_authorization_scheme(client):
     response = client.get(
