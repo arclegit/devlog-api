@@ -8,8 +8,16 @@ DATABASE_URL = os.getenv("DATABASE_URL")
 if not DATABASE_URL:
     raise ValueError("DATABASE_URL is not set")
 
-JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY")    
-ACCESS_TOKEN_EXPIRE_MINUTES = int( os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "30"))
+if DATABASE_URL.startswith("postgres://"):
+    DATABASE_URL = "postgresql://" + DATABASE_URL[len("postgres://"):]
+
+if DATABASE_URL.startswith("postgresql://"):
+    DATABASE_URL = "postgresql+psycopg://" + DATABASE_URL[len("postgresql://"):]
+
+JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY")
+ACCESS_TOKEN_EXPIRE_MINUTES = int(
+    os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "30")
+)
 
 if not JWT_SECRET_KEY:
     raise ValueError("JWT_SECRET_KEY is not set")
