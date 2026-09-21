@@ -13,6 +13,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from app.logging import configure_logging
 from app.rate_limit import limiter
 
+from app.ai.router import router as ai_router
 from app.analytics import router as analytics_router
 from app.auth import router as auth_router
 from app.sessions import router as sessions_router
@@ -50,6 +51,7 @@ async def request_context(request: Request, call_next):
 app.include_router(auth_router)
 app.include_router(sessions_router)
 app.include_router(analytics_router)
+app.include_router(ai_router)
 
 
 @app.get(

@@ -23,7 +23,7 @@ class MockAIProvider(AIProvider):
 
         if context.projects:
             patterns.append(
-                f"Most activity was associated with "
+                "Most activity was associated with "
                 f"{context.projects[0]['project_name']}."
             )
 

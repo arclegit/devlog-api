@@ -28,3 +28,10 @@ if not JWT_SECRET_KEY:
 ACCESS_TOKEN_EXPIRE_MINUTES = int(
     os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "30")
 )
+
+AI_API_KEY = os.getenv("AI_API_KEY")
+AI_MODEL = os.getenv("AI_MODEL", "gpt-5.6-luna")
+AI_TIMEOUT_SECONDS = float(
+    os.getenv("AI_TIMEOUT_SECONDS", "30")
+)
+AI_PROVIDER = os.getenv("AI_PROVIDER", "mock")
