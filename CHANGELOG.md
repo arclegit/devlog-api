@@ -2,6 +2,12 @@
 
 All notable changes to DevLog API are documented here.
 
+## [2.0.0] - Unreleased
+
+- Added AI-generated activity summaries using structured analytics context.
+- Added mock and OpenAI provider implementations behind an AI provider boundary.
+- Hardened AI provider failures and rate-limited AI summary generation.
+
 ## [1.0.0] - 2026-09-19
 
 - Added account password change and soft deletion.
