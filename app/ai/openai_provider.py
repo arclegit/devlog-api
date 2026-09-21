@@ -1,8 +1,9 @@
 import json
 
-from openai import OpenAI
+from openai import APIError, APITimeoutError, OpenAI, RateLimitError
 
 from app.ai.context import ActivityContext
+from app.ai.exceptions import AIProviderError
 from app.ai.provider import AIProvider
 from app.ai.schemas import ActivitySummaryResponse
 from app.config import (
@@ -15,8 +16,9 @@ from app.config import (
 class OpenAIProvider(AIProvider):
     def __init__(self):
         if not AI_API_KEY:
-            raise RuntimeError(
-                "AI_API_KEY is not configured."
+            raise AIProviderError(
+                status_code=503,
+                message="AI service is not configured.",
             )
 
         self.client = OpenAI(
@@ -63,24 +65,41 @@ Rules:
             f"{json.dumps(activity_data, default=str)}"
         )
 
-        response = self.client.responses.parse(
-            model=AI_MODEL,
-            input=[
-                {
-                    "role": "system",
-                    "content": system_prompt,
-                },
-                {
-                    "role": "user",
-                    "content": user_prompt,
-                },
-            ],
-            text_format=ActivitySummaryResponse,
-        )
+        try:
+            response = self.client.responses.parse(
+                model=AI_MODEL,
+                input=[
+                    {
+                        "role": "system",
+                        "content": system_prompt,
+                    },
+                    {
+                        "role": "user",
+                        "content": user_prompt,
+                    },
+                ],
+                text_format=ActivitySummaryResponse,
+            )
+        except APITimeoutError as exc:
+            raise AIProviderError(
+                status_code=504,
+                message="AI service timed out.",
+            ) from exc
+        except RateLimitError as exc:
+            raise AIProviderError(
+                status_code=503,
+                message="AI service is temporarily unavailable.",
+            ) from exc
+        except APIError as exc:
+            raise AIProviderError(
+                status_code=502,
+                message="AI service failed to generate a summary.",
+            ) from exc
 
         if response.output_parsed is None:
-            raise RuntimeError(
-                "OpenAI returned no structured activity summary."
+            raise AIProviderError(
+                status_code=502,
+                message="AI service returned an invalid response.",
             )
 
         return response.output_parsed
