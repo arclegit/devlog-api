@@ -148,7 +148,7 @@ Testing
 
 Tests use SQLite in-memory, prod uses PostgreSQL.
 pytest -q
-53 passed
+74 passed
 
 CI runs the suite with coverage and enforces an 80% minimum. The workflow is in `.github/workflows/ci.yml`.
 Notes
