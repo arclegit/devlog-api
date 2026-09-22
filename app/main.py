@@ -24,9 +24,10 @@ app = FastAPI(
     description=(
         "Developer activity logging and analytics REST API. "
         "DevLog allows authenticated developers to record coding "
-        "sessions and analyze their development activity."
+        "sessions, analyze their development activity, and generate "
+        "AI-powered activity summaries."
     ),
-    version="1.0.0",
+    version="2.0.0",
 )
 configure_logging()
 app.state.limiter = limiter

@@ -14,11 +14,12 @@ What it does
 - **Account lifecycle:** Password change, soft account deletion, and a validated IANA timezone preference.
 - **Sessions:** CRUD for coding sessions. Active sessions have `ended_at = null`. Users can only see their own sessions.
 - **Analytics:** Summary, by language, by project, daily, weekly, with `from` / `to` filters. Duration is computed as `ended_at - started_at`, not stored.
+- **AI summaries:** `POST /ai/activity-summary` generates an interpretation of your activity for a date range. Analytics are computed by the app; the AI provider only writes the summary. Mock and OpenAI providers, provider failure mapping, and a 5/minute rate limit.
 - **Operations:** JSON structured request logs, request IDs, rate-limited authentication, and `/health` / `/ready` probes.
 
 Stack
 
-Python, FastAPI, Pydantic v2, SQLAlchemy 2.0, PostgreSQL + psycopg, Alembic, PyJWT + pwdlib, Uvicorn, pytest + HTTPX
+Python, FastAPI, Pydantic v2, SQLAlchemy 2.0, PostgreSQL + psycopg, Alembic, PyJWT + pwdlib, OpenAI (optional AI provider), Uvicorn, pytest + HTTPX
 
 Structure
 
@@ -33,6 +34,7 @@ app/
   http://analytics.py    # aggregated queries
   http://security.py     # hashing, JWT
   http://dependencies.py # get_current_user, get_db
+  ai/               # AI provider boundary, service, context, router
 alembic/          # migrations
 tests/            # pytest, sqlite in-memory
 docs/
@@ -58,6 +60,13 @@ Create `.env` from `.env.example`:
 DATABASE_URL=postgresql+psycopg://user:pass@localhost:5432/devlog
 JWT_SECRET_KEY=your-random-secret
 ACCESS_TOKEN_EXPIRE_MINUTES=30
+
+# AI activity summaries
+AI_PROVIDER=mock            # mock | openai
+AI_API_KEY=                 # required when AI_PROVIDER=openai
+AI_MODEL=gpt-5.6-luna
+AI_TIMEOUT_SECONDS=30
+RATE_LIMIT_ENABLED=true
 `.env` is gitignored. Never commit it.
 
 Database
@@ -89,11 +98,43 @@ GET /analytics/languages
 GET /analytics/projects
 GET /analytics/daily
 GET /analytics/weekly
+
+POST /ai/activity-summary
 Auth via `Authorization: Bearer <token>`
 
 All errors share the form `{"error": {"code", "message", "request_id", "details?"}}`. Send `X-Request-ID` to provide your own correlation ID, or read the one returned in every response.
 
 Analytics can be scoped with ISO 8601 timestamps, for example: `GET /analytics/summary?from=2026-01-01T00:00:00Z&to=2026-01-31T23:59:59Z`.
+
+AI activity summary
+
+`POST /ai/activity-summary` requires a Bearer token and is limited to 5 requests per minute.
+
+Request:
+
+```json
+{
+  "start_date": "2026-09-01",
+  "end_date": "2026-09-20"
+}
+```
+
+Response `200`:
+
+```json
+{
+  "summary": "Development activity was recorded across 12 completed sessions.",
+  "focus_areas": ["Python", "SQL"],
+  "patterns": ["12 completed coding sessions were recorded during the selected period."]
+}
+```
+
+Behavior:
+
+- The app computes all analytics (sessions, durations, languages, projects, daily activity) from your own data and passes them to the provider as structured context. The AI never calculates statistics.
+- The provider is selected with `AI_PROVIDER` (`mock` or `openai`). `mock` is the default and needs no API key; `openai` requires `AI_API_KEY` and uses `AI_MODEL` / `AI_TIMEOUT_SECONDS`.
+- Provider failures map to: `504` timeout, `503` provider rate limit / not configured, `502` provider API error or invalid structured response. All errors use the standard error envelope and include the request ID.
+- Only completed sessions (with `ended_at`) in the requested date range are included.
 
 Docker
 
