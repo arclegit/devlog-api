@@ -27,7 +27,7 @@ app = FastAPI(
         "sessions, analyze their development activity, and generate "
         "AI-powered activity summaries."
     ),
-    version="2.0.0",
+    version="3.0.0",
 )
 configure_logging()
 app.state.limiter = limiter

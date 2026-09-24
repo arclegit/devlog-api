@@ -35,3 +35,7 @@ AI_TIMEOUT_SECONDS = float(
     os.getenv("AI_TIMEOUT_SECONDS", "30")
 )
 AI_PROVIDER = os.getenv("AI_PROVIDER", "mock")
+
+AI_STREAMING_ENABLED = os.getenv("AI_STREAMING_ENABLED", "false").lower() == "true"
+AI_TOKEN_USAGE_TRACKING_ENABLED = os.getenv("AI_TOKEN_USAGE_TRACKING_ENABLED", "false").lower() == "true"
+AI_COST_LOGGING_ENABLED = os.getenv("AI_COST_LOGGING_ENABLED", "false").lower() == "true"

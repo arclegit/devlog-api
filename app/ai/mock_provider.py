@@ -1,37 +1,36 @@
 from app.ai.context import ActivityContext
 from app.ai.provider import AIProvider
-from app.ai.schemas import ActivitySummaryResponse
-
+from app.ai.schemas import ActivitySummaryResponse, TokenUsage, CostLog
 
 class MockAIProvider(AIProvider):
     def generate_activity_summary(
         self,
         context: ActivityContext,
     ) -> ActivitySummaryResponse:
-        focus_areas = [
-            item["language"]
-            for item in context.languages[:3]
-        ]
-
+        focus_areas = [item["language"] for item in context.languages[:3]]
         patterns = []
 
         if context.total_sessions > 0:
             patterns.append(
-                f"{context.total_sessions} completed coding sessions "
-                "were recorded during the selected period."
+                f"{context.total_sessions} completed coding sessions were recorded during the selected period."
             )
 
         if context.projects:
             patterns.append(
-                "Most activity was associated with "
-                f"{context.projects[0]['project_name']}."
+                f"Most activity was associated with {context.projects[0]['project_name']}."
             )
 
         return ActivitySummaryResponse(
-            summary=(
-                "Development activity was recorded across "
-                f"{context.total_sessions} completed sessions."
-            ),
+            summary=f"Development activity was recorded across {context.total_sessions} completed sessions.",
             focus_areas=focus_areas,
             patterns=patterns,
+            token_usage=TokenUsage(prompt_tokens=10, completion_tokens=20, total_tokens=30),
+            cost=CostLog(model="mock", cost=0.0),
         )
+
+    async def generate_activity_summary_stream(
+        self,
+        context: ActivityContext,
+    ):
+        yield "Development activity was recorded across "
+        yield f"{context.total_sessions} completed sessions."

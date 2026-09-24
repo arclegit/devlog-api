@@ -1,8 +1,6 @@
 from abc import ABC, abstractmethod
-
 from app.ai.context import ActivityContext
 from app.ai.schemas import ActivitySummaryResponse
-
 
 class AIProvider(ABC):
     @abstractmethod
@@ -10,4 +8,11 @@ class AIProvider(ABC):
         self,
         context: ActivityContext,
     ) -> ActivitySummaryResponse:
+        raise NotImplementedError
+
+    @abstractmethod
+    async def generate_activity_summary_stream(
+        self,
+        context: ActivityContext,
+    ):
         raise NotImplementedError

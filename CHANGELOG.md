@@ -2,9 +2,19 @@
 
 All notable changes to DevLog API are documented here.
 
+## [v3.0.0] - 2026-09-24
+### Added
+- Streaming responses for AI-generated activity summaries.
+- Structured JSON outputs for AI responses.
+- Prompt templates for consistency.
+- Token usage tracking for AI requests.
+- Cost logging for AI requests.
+
 ## [2.0.0] - 2026-09-22
 
-- Added `POST /ai/activity-summary` for AI-generated activity summaries built from structured analytics context.
+### Added
+
+- `POST /ai/activity-summary` for AI-generated activity summaries built from structured analytics context.
 - Added an AI provider boundary with mock and OpenAI provider implementations, selected via `AI_PROVIDER`.
 - Hardened AI provider failures with mapped HTTP errors (timeout → 504, provider rate limit → 503, API/invalid response → 502).
 - Rate-limited AI summary generation to 5 requests per minute.
