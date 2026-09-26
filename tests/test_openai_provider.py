@@ -42,12 +42,14 @@ def _mock_response(content=VALID_JSON):
 
 
 def _provider():
-    with patch("app.ai.openai_provider.OpenAI"), \
+    with patch("app.ai.openai_provider.AI_API_KEY", "test-api-key"), \
+         patch("app.ai.openai_provider.OpenAI"), \
          patch("app.ai.openai_provider.AsyncOpenAI"):
         provider = OpenAIProvider()
     provider.client = MagicMock()
     provider.async_client = MagicMock()
     return provider
+
 
 
 class TestOpenAIProvider:
