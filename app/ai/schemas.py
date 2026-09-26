@@ -20,6 +20,24 @@ class ActivitySummaryRequest(BaseModel):
         return self
 
 
+class TokenUsage(BaseModel):
+    prompt_tokens: int = Field(description="Number of tokens used in the prompt.")
+    completion_tokens: int = Field(description="Number of tokens used in the completion.")
+    total_tokens: int = Field(description="Total tokens used in the request.")
+
+
+class CostLog(BaseModel):
+    model: str = Field(description="Model used for the AI request.")
+    cost: float = Field(description="Cost of the AI request in USD.")
+
+
+class Citation(BaseModel):
+    chunk_id: int = Field(description="Identifier of the cited document chunk.")
+    document_id: int = Field(description="Identifier of the cited document.")
+    title: str = Field(description="Title of the cited document.")
+    snippet: str = Field(description="Short excerpt of the cited chunk.")
+
+
 class ActivitySummaryResponse(BaseModel):
     summary: str = Field(
         description="AI-generated interpretation of the user's development activity.",
@@ -30,21 +48,13 @@ class ActivitySummaryResponse(BaseModel):
     patterns: list[str] = Field(
         description="Notable patterns identified from the activity data.",
     )
-
-
-
-class TokenUsage(BaseModel):
-    prompt_tokens: int = Field(description="Number of tokens used in the prompt.")
-    completion_tokens: int = Field(description="Number of tokens used in the completion.")
-    total_tokens: int = Field(description="Total tokens used in the request.")
-
-class CostLog(BaseModel):
-    model: str = Field(description="Model used for the AI request.")
-    cost: float = Field(description="Cost of the AI request in USD.")
-
-class ActivitySummaryResponse(BaseModel):
-    summary: str = Field(description="AI-generated interpretation of the user's development activity.")
-    focus_areas: list[str] = Field(description="Main development areas identified from the activity data.")
-    patterns: list[str] = Field(description="Notable patterns identified from the activity data.")
-    token_usage: TokenUsage | None = Field(default=None, description="Token usage for the AI request.")
-    cost: CostLog | None = Field(default=None, description="Cost of the AI request.")
+    token_usage: TokenUsage | None = Field(
+        default=None, description="Token usage for the AI request."
+    )
+    cost: CostLog | None = Field(
+        default=None, description="Cost of the AI request."
+    )
+    citations: list[Citation] = Field(
+        default_factory=list,
+        description="Chunks of the user's notes/documents used to ground the summary.",
+    )

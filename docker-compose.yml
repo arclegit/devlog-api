@@ -26,3 +26,8 @@ services:
 
 volumes:
   postgres_data:
+
+services:
+  db:
+    image: pgvector/pgvector:pg17   
+    

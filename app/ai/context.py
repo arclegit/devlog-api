@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import date, datetime, time, timezone
 
 from sqlalchemy.orm import Session
@@ -19,6 +19,7 @@ class ActivityContext:
     languages: list[dict]
     projects: list[dict]
     daily_activity: list[dict]
+    retrieved_chunks: list[dict] = field(default_factory=list)
 
 def build_activity_context(
     db: Session,

@@ -64,7 +64,7 @@ ACCESS_TOKEN_EXPIRE_MINUTES=30
 # AI activity summaries
 AI_PROVIDER=mock            # mock | openai
 AI_API_KEY=                 # required when AI_PROVIDER=openai
-AI_MODEL=gpt-5.6-luna
+AI_MODEL=gemini-2.5-flash
 AI_TIMEOUT_SECONDS=30
 RATE_LIMIT_ENABLED=true
 `.env` is gitignored. Never commit it.

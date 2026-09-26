@@ -8,6 +8,7 @@ from fastapi.responses import JSONResponse
 from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
 
+from app.rag.router import router as rag_router 
 from app.errors import http_exception_handler, rate_limit_exception_handler, validation_exception_handler
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from app.logging import configure_logging
@@ -27,7 +28,7 @@ app = FastAPI(
         "sessions, analyze their development activity, and generate "
         "AI-powered activity summaries."
     ),
-    version="3.0.0",
+    version="4.0.0",
 )
 configure_logging()
 app.state.limiter = limiter
@@ -53,6 +54,7 @@ app.include_router(auth_router)
 app.include_router(sessions_router)
 app.include_router(analytics_router)
 app.include_router(ai_router)
+app.include_router(rag_router)
 
 
 @app.get(

@@ -8,9 +8,10 @@ def create_ai_provider() -> AIProvider:
     if AI_PROVIDER == "mock":
         return MockAIProvider()
 
-    if AI_PROVIDER == "openai":
+    if AI_PROVIDER in ("openai", "gemini"):
         return OpenAIProvider()
 
     raise RuntimeError(
         f"Unsupported AI_PROVIDER: {AI_PROVIDER}"
     )
+   

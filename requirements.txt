@@ -25,6 +25,7 @@ Mako==1.4.1
 MarkupSafe==3.0.3
 openai==3.16.2
 packaging==26.3
+pgvector==0.4.1
 pluggy==1.6.0
 psycopg==3.3.5
 psycopg-binary==3.3.5
