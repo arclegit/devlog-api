@@ -15,6 +15,8 @@ What it does
 - **Sessions:** CRUD for coding sessions. Active sessions have `ended_at = null`. Users can only see their own sessions.
 - **Analytics:** Summary, by language, by project, daily, weekly, with `from` / `to` filters. Duration is computed as `ended_at - started_at`, not stored.
 - **AI summaries:** `POST /ai/activity-summary` generates an interpretation of your activity for a date range. Analytics are computed by the app; the AI provider only writes the summary. Mock and OpenAI providers, provider failure mapping, and a 5/minute rate limit.
+- **MCP server (v4.1.0):** `POST /mcp` exposes DevLog tools over MCP Streamable HTTP (JSON-RPC 2.0): list_sessions, analytics_summary, activity_breakdown, search_notes, activity_summary. Auth: `Authorization: Bearer <JWT>` from `POST /auth/login`. No `mcp` PyPI package required.
+- **MCP quickstart:** login to get TOKEN, then POST initialize / tools/list / tools/call to `https://YOUR-RENDER-URL/mcp`. Claude Desktop via `mcp-remote`: `{"mcpServers":{"devlog":{"command":"npx","args":["-y","mcp-remote","https://YOUR-RENDER-URL/mcp","--header","Authorization: Bearer $TOKEN"]}}}`. Full curl examples in `docs/mcp-client.md`.
 - **Operations:** JSON structured request logs, request IDs, rate-limited authentication, and `/health` / `/ready` probes.
 
 Stack
@@ -148,7 +150,7 @@ Testing
 
 Tests use SQLite in-memory, prod uses PostgreSQL.
 pytest -q
-74 passed
+79 passed (74 pre-existing + 5 new MCP tests; openai-provider tests need AI_API_KEY=dummy in CI/local env)
 
 CI runs the suite with coverage and enforces an 80% minimum. The workflow is in `.github/workflows/ci.yml`.
 Notes

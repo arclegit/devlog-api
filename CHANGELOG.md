@@ -2,6 +2,20 @@
 
 All notable changes to DevLog API are documented here.
 
+## [v4.1.0] - 2026-09-27
+### Added
+- MCP server at `POST /mcp` (Streamable HTTP, JSON-RPC 2.0): initialize, tools/list, tools/call, ping.
+- 5 tools: list_sessions, analytics_summary, activity_breakdown, search_notes, activity_summary.
+- Bearer-JWT auth on tools/call (same tokens as REST); per-user isolation in every tool.
+- Lifespan manages MCP session state; version bumped to 4.1.0.
+- Zero new dependencies: hand-rolled JSON-RPC so pip install mcp issues do not block deploy.
+- GET /mcp discovery doc + tests/test_mcp.py (5 tests).
+- Env: MCP_ENABLED, MCP_SERVER_NAME, MCP_SERVER_VERSION, MCP_REQUIRE_AUTH, MCP_ALLOWED_ORIGINS.
+
+## [v4.0.0] - 2026-09-26
+### Added
+- RAG: documents/chunks (pgvector HNSW + FTS GIN), hybrid RRF retrieval, session indexing, citations in AI summaries.
+
 ## [v3.0.0] - 2026-09-24
 ### Added
 - Streaming responses for AI-generated activity summaries.
