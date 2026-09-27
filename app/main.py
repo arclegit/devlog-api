@@ -1,5 +1,6 @@
 import time
 import uuid
+from contextlib import asynccontextmanager
 
 import structlog
 from fastapi import FastAPI, Request
@@ -18,9 +19,20 @@ from app.ai.router import router as ai_router
 from app.analytics import router as analytics_router
 from app.auth import router as auth_router
 from app.sessions import router as sessions_router
+from app.mcp_server.config import get_mcp_settings
+from app.mcp_server.transport import router as mcp_router
 
 
-app = FastAPI(
+@asynccontextmanager
+async def lifespan(app):
+    s = get_mcp_settings()
+    app.state.mcp_settings = s
+    app.state.mcp_sessions = {}
+    yield
+    app.state.mcp_sessions.clear()
+
+
+app = FastAPI(lifespan=lifespan,
     title="DevLog API",
     description=(
         "Developer activity logging and analytics REST API. "
@@ -28,7 +40,7 @@ app = FastAPI(
         "sessions, analyze their development activity, and generate "
         "AI-powered activity summaries."
     ),
-    version="4.0.0",
+    version="4.1.0",
 )
 configure_logging()
 app.state.limiter = limiter
@@ -55,6 +67,7 @@ app.include_router(sessions_router)
 app.include_router(analytics_router)
 app.include_router(ai_router)
 app.include_router(rag_router)
+app.include_router(mcp_router)
 
 
 @app.get(
